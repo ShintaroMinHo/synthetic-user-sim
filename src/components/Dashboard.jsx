@@ -14,7 +14,9 @@ export default function Dashboard() {
     const [activityHistory, setActivityHistory] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(null);
 
-    // Calculs totaux cumulés à partir de l'historique
+    const [loadingRandomUser, setLoadingRandomUser] = useState(false);
+    const [loadingNextDay, setLoadingNextDay] = useState(false);
+
     const totalUsersFromHistory = activityHistory.reduce((acc, day) => acc + day.users, 0);
     const totalFriendships = activityHistory.reduce((acc, day) => acc + day.friendships, 0);
     const totalInteractions = activityHistory.reduce((acc, day) => acc + day.interactions, 0);
@@ -46,6 +48,8 @@ export default function Dashboard() {
     };
 
     const nextDay = async () => {
+        if (loadingNextDay) return; // Ignore si déjà en cours
+        setLoadingNextDay(true);
         try {
             const res = await fetch('http://localhost:8080/api/simulate_day', {
                 method: 'POST',
@@ -78,19 +82,24 @@ export default function Dashboard() {
             await fetchTotalUsers();
         } catch (err) {
             console.error(err);
+        } finally {
+            setLoadingNextDay(false);
         }
     };
 
-    // Récupérer un user random
     const fetchRandomUserId = async () => {
+        if (loadingRandomUser) return; // Ignore si déjà en cours
+        setLoadingRandomUser(true);
         try {
             const res = await fetch('http://localhost:8080/api/random_user_id');
             if (!res.ok) throw new Error('Failed to get random user');
-            const { id } = await res.json();
-            setSelectedUserId(id);
+            const { user_id } = await res.json();
+            setSelectedUserId(user_id);
         } catch (err) {
             console.error(err);
             alert("Erreur lors de la récupération d'un utilisateur aléatoire");
+        } finally {
+            setLoadingRandomUser(false);
         }
     };
 
@@ -109,13 +118,15 @@ export default function Dashboard() {
                 deltaInteractions={deltaInteractions}
                 onReset={resetSimulation}
                 onNextDay={nextDay}
+                loadingNextDay={loadingNextDay} // Passe le flag pour désactiver le bouton si besoin
             />
 
             <button
                 onClick={fetchRandomUserId}
-                className="bg-blue-600 text-white px-4 py-2 rounded mb-4 hover:bg-blue-700 transition"
+                disabled={loadingRandomUser}
+                className="bg-blue-600 text-white px-4 py-2 rounded mb-4 hover:bg-blue-700 transition disabled:opacity-50"
             >
-                Random user information
+                {loadingRandomUser ? 'Loading...' : 'Random user information'}
             </button>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -142,7 +153,6 @@ export default function Dashboard() {
                 />
             </div>
 
-            {/* Affichage des infos user aléatoire en bas */}
             {selectedUserId && (
                 <section className="mt-10 border-t pt-6">
                     <UserProfile
@@ -153,8 +163,6 @@ export default function Dashboard() {
                     />
                     <FriendsList userId={selectedUserId} />
                     <Recommendations userId={selectedUserId} />
-                    const profileRes = await getUserProfile(userId);
-                    logResult('Get User Profile', profileRes);
                 </section>
             )}
         </div>

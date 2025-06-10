@@ -1,10 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import UserConnections from './UserConnections'; // adapte le chemin si besoin
-
-function percentFromScore(score) {
-    const percentage = (score / 15) * 100;
-    return Math.min(100, Math.max(0, Math.round(percentage)));
-}
 
 export default function UserProfile({ selectedUserId, setSelectedUserId, totalUsers, day }) {
     const [userIdInput, setUserIdInput] = useState('');
@@ -12,7 +6,6 @@ export default function UserProfile({ selectedUserId, setSelectedUserId, totalUs
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // Récupérer le profil utilisateur via API
     const fetchUserProfile = async (id) => {
         setLoading(true);
         setError(null);
@@ -31,7 +24,6 @@ export default function UserProfile({ selectedUserId, setSelectedUserId, totalUs
         }
     };
 
-    // Obtenir un utilisateur aléatoire
     const fetchRandomUser = async () => {
         setLoading(true);
         setError(null);
@@ -51,7 +43,6 @@ export default function UserProfile({ selectedUserId, setSelectedUserId, totalUs
         }
     };
 
-    // Soumission du formulaire
     const handleSubmit = (e) => {
         e.preventDefault();
         const id = parseInt(userIdInput, 10);
@@ -62,7 +53,6 @@ export default function UserProfile({ selectedUserId, setSelectedUserId, totalUs
         }
     };
 
-    // Lors du changement de selectedUserId ou day, on recharge le profil
     useEffect(() => {
         if (selectedUserId) {
             setUserIdInput(selectedUserId.toString());
@@ -88,7 +78,7 @@ export default function UserProfile({ selectedUserId, setSelectedUserId, totalUs
                     value={userIdInput}
                     onChange={(e) => {
                         setUserIdInput(e.target.value);
-                        if (error) setError(null); // clear error when user types
+                        if (error) setError(null);
                     }}
                     placeholder="User ID"
                     className="border rounded px-3 py-2 w-24"
@@ -122,27 +112,23 @@ export default function UserProfile({ selectedUserId, setSelectedUserId, totalUs
                     />
                     <div className="flex-1">
                         <h3 className="text-xl font-bold">
-                            {profile.first_name} {profile.surname} {profile.gender === 'M' ? '♂️' : profile.gender === 'F' ? '♀️' : '⚧️'}
+                            {profile.first_name} {profile.surname} {profile.gender === 'M' ? '♂️' : profile.gender === 'F' ? '♀️' : ''}
                         </h3>
 
                         <div className="mt-4">
                             <h4 className="font-semibold">Interests</h4>
-                            <div className="space-y-2 mt-2">
-                                {profile.interests.map(({ name, score }) => (
-                                    <div key={name}>
-                                        <label className="flex justify-between font-medium">
-                                            {name}
-                                            <span>{percentFromScore(score)}%</span>
-                                        </label>
-                                        <div className="bg-gray-200 rounded h-4">
-                                            <div
-                                                className="bg-blue-500 h-4 rounded"
-                                                style={{ width: `${percentFromScore(score)}%` }}
-                                            ></div>
+                            {profile.interests.length === 0 ? (
+                                <p className="text-gray-500 italic">No interests</p>
+                            ) : (
+                                <div className="space-y-2 mt-2">
+                                    {profile.interests.map(({ name, score }) => (
+                                        <div key={name} className="flex justify-between font-medium">
+                                            <span>{name}</span>
+                                            <span>{score}</span>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-4">
@@ -156,8 +142,8 @@ export default function UserProfile({ selectedUserId, setSelectedUserId, totalUs
                                         }`}
                                         title={tag ? 'Active Tag' : 'Inactive Tag'}
                                     >
-                    {idx + 1}
-                  </span>
+                                        {tag}
+                                    </span>
                                 ))}
                             </div>
                         </div>

@@ -10,47 +10,55 @@ export default function FriendsList({ userId }) {
         if (!userId) {
             setFriendsIds([]);
             setFriendsProfiles([]);
+            setError(null);
+            setLoading(false);
             return;
         }
 
         setLoading(true);
         setError(null);
 
-        // 1. Récupérer les IDs des amis
-        fetch(`http://localhost:8080/api/get_user_friends?id=${userId}`)
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to fetch friends IDs');
-                return res.json();
-            })
-            .then((data) => {
-                setFriendsIds(data.friends);
+        // Debounce timer
+        const debounceTimer = setTimeout(() => {
+            // 1. Fetch friends IDs
+            fetch(`http://localhost:8080/api/get_user_friends?id=${userId}`)
+                .then((res) => {
+                    if (!res.ok) throw new Error('Failed to fetch friends IDs');
+                    return res.json();
+                })
+                .then((data) => {
+                    setFriendsIds(data.friends);
 
-                // 2. Récupérer les profils légers des amis
-                if (data.friends.length === 0) {
-                    setFriendsProfiles([]);
+                    if (data.friends.length === 0) {
+                        setFriendsProfiles([]);
+                        setLoading(false);
+                        return null; // stop chain
+                    }
+
+                    // 2. Fetch friends profiles batch
+                    return fetch('http://localhost:8080/api/batch_get_simple_profiles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data.friends),
+                    });
+                })
+                .then((res) => {
+                    if (!res) return; // if no friends
+                    if (!res.ok) throw new Error('Failed to fetch friends profiles');
+                    return res.json();
+                })
+                .then((data) => {
+                    if (data) setFriendsProfiles(data.profiles);
                     setLoading(false);
-                    return;
-                }
-
-                return fetch('http://localhost:8080/api/batch_get_simple_profiles', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data.friends),
+                })
+                .catch((err) => {
+                    setError(err.message);
+                    setLoading(false);
                 });
-            })
-            .then((res) => {
-                if (!res) return; // si pas d’amis
-                if (!res.ok) throw new Error('Failed to fetch friends profiles');
-                return res.json();
-            })
-            .then((data) => {
-                if (data) setFriendsProfiles(data.profiles);
-                setLoading(false);
-            })
-            .catch((err) => {
-                setError(err.message);
-                setLoading(false);
-            });
+        }, 500); // délai debounce de 500ms
+
+        // Cleanup function : annule le timer si userId change avant les 500ms
+        return () => clearTimeout(debounceTimer);
     }, [userId]);
 
     if (!userId) return null;
@@ -73,8 +81,8 @@ export default function FriendsList({ userId }) {
                             className="w-16 h-16 rounded-full"
                         />
                         <span className="text-sm text-center">
-              {friend.first_name} {friend.surname}
-            </span>
+                            {friend.first_name} {friend.surname}
+                        </span>
                     </li>
                 ))}
             </ul>
