@@ -6,7 +6,7 @@ export default function SimulationControls({ day, deltaUsers, deltaFriendships, 
             <div>
                 <h2 className="text-xl font-semibold">Day {day}</h2>
                 <p className="text-sm text-gray-700">
-                    +{deltaUsers} users, +{deltaFriendships} friendships, {deltaInteractions.toLocaleString()} interactions today
+                    +{deltaUsers ?? 0} users, +{deltaFriendships ?? 0} friendships, {(deltaInteractions ?? 0).toLocaleString()} interactions today
                 </p>
             </div>
             <div className="space-x-3">

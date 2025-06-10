@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import SimulationControls from './SimulationControls';
-import StatsChart from './StatsChart';
+import MetricChart from './MetricChart';
 import UserProfile from './UserProfile';
 import Recommendations from './Recommendations';
 import FriendsList from './FriendsList';
-
 
 export default function Dashboard() {
     const [day, setDay] = useState(0);
@@ -15,36 +14,84 @@ export default function Dashboard() {
     const [activityHistory, setActivityHistory] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(null);
 
-    // Load total users from API
+    // Calculs totaux cumulés à partir de l'historique
+    const totalUsersFromHistory = activityHistory.reduce((acc, day) => acc + day.users, 0);
+    const totalFriendships = activityHistory.reduce((acc, day) => acc + day.friendships, 0);
+    const totalInteractions = activityHistory.reduce((acc, day) => acc + day.interactions, 0);
+
     const fetchTotalUsers = async () => {
-        const res = await fetch('/api/get_total_count');
-        const count = await res.json();
-        setTotalUsers(count);
+        try {
+            const res = await fetch('http://localhost:8080/api/get_total_count');
+            if (!res.ok) throw new Error('Failed to fetch total users');
+            const count = await res.json();
+            setTotalUsers(count);
+        } catch (err) {
+            console.error(err);
+        }
     };
 
-    // Reset simulation
     const resetSimulation = async () => {
-        await fetch('/api/refresh_db');
-        setDay(0);
-        setActivityHistory([]);
-        setDeltaUsers(0);
-        setDeltaFriendships(0);
-        setDeltaInteractions(0);
-        await fetchTotalUsers();
-        setSelectedUserId(null);
+        try {
+            await fetch('http://localhost:8080/api/refresh_db', { method: 'POST' });
+            setDay(0);
+            setActivityHistory([]);
+            setDeltaUsers(0);
+            setDeltaFriendships(0);
+            setDeltaInteractions(0);
+            setSelectedUserId(null);
+            await fetchTotalUsers();
+        } catch (err) {
+            console.error(err);
+        }
     };
 
-    // Simulate next day
     const nextDay = async () => {
-        const res = await fetch('/api/simulate_day');
-        const data = await res.json();
-        // Expected response: { delta_users, delta_friendships, delta_interactions }
-        setDay(prev => prev + 1);
-        setDeltaUsers(data.delta_users);
-        setDeltaFriendships(data.delta_friendships);
-        setDeltaInteractions(data.delta_interactions);
-        setActivityHistory(prev => [...prev, data.delta_interactions]);
-        await fetchTotalUsers();
+        try {
+            const res = await fetch('http://localhost:8080/api/simulate_day', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                console.error('Erreur HTTP:', res.status, errText);
+                return;
+            }
+
+            const data = await res.json();
+
+            setDay(prev => prev + 1);
+            setDeltaUsers(data.new_users);
+            setDeltaFriendships(data.new_friendships);
+            setDeltaInteractions(data.total_interactions);
+
+            setActivityHistory(prev => [
+                ...prev,
+                {
+                    users: data.new_users,
+                    friendships: data.new_friendships,
+                    interactions: data.total_interactions,
+                },
+            ]);
+
+            await fetchTotalUsers();
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    // Récupérer un user random
+    const fetchRandomUserId = async () => {
+        try {
+            const res = await fetch('http://localhost:8080/api/random_user_id');
+            if (!res.ok) throw new Error('Failed to get random user');
+            const { id } = await res.json();
+            setSelectedUserId(id);
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de la récupération d'un utilisateur aléatoire");
+        }
     };
 
     useEffect(() => {
@@ -64,23 +111,51 @@ export default function Dashboard() {
                 onNextDay={nextDay}
             />
 
-            <StatsChart activityHistory={activityHistory} />
+            <button
+                onClick={fetchRandomUserId}
+                className="bg-blue-600 text-white px-4 py-2 rounded mb-4 hover:bg-blue-700 transition"
+            >
+                Random user information
+            </button>
 
-            <UserProfile
-                selectedUserId={selectedUserId}
-                setSelectedUserId={setSelectedUserId}
-                totalUsers={totalUsers}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MetricChart
+                    title="New Users"
+                    color="rgb(16, 185, 129)"
+                    data={activityHistory.map(day => day.users)}
+                    total={totalUsersFromHistory}
+                    delta={deltaUsers}
+                />
+                <MetricChart
+                    title="New Friendships"
+                    color="rgb(59, 130, 246)"
+                    data={activityHistory.map(day => day.friendships)}
+                    total={totalFriendships}
+                    delta={deltaFriendships}
+                />
+                <MetricChart
+                    title="Interactions"
+                    color="rgb(234, 179, 8)"
+                    data={activityHistory.map(day => day.interactions)}
+                    total={totalInteractions}
+                    delta={deltaInteractions}
+                />
+            </div>
 
+            {/* Affichage des infos user aléatoire en bas */}
             {selectedUserId && (
-                <>
+                <section className="mt-10 border-t pt-6">
+                    <UserProfile
+                        selectedUserId={selectedUserId}
+                        setSelectedUserId={setSelectedUserId}
+                        totalUsers={totalUsers}
+                        day={day}
+                    />
                     <FriendsList userId={selectedUserId} />
                     <Recommendations userId={selectedUserId} />
-                </>
-            )}
-
-            {selectedUserId && (
-                <Recommendations userId={selectedUserId} />
+                    const profileRes = await getUserProfile(userId);
+                    logResult('Get User Profile', profileRes);
+                </section>
             )}
         </div>
     );

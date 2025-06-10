@@ -1,19 +1,105 @@
-const API_BASE_URL = '/api';
+const BASE_URL = 'http://localhost:8080/api';
+const PING_URL = 'http://localhost:8080/ping';
 
-export const refreshDB = () => fetch(`${API_BASE_URL}/refresh_db`);
-export const getTotalCount = () => fetch(`${API_BASE_URL}/get_total_count`).then(res => res.json());
-export const simulateDay = () => fetch(`${API_BASE_URL}/simulate_day`).then(res => res.json());
-export const getRandomUserId = () => fetch(`${API_BASE_URL}/random_user_id`).then(res => res.json());
-export const getUserProfile = (id) => fetch(`${API_BASE_URL}/get_user_profile?id=${id}`).then(res => res.json());
-export const getUserFriends = (id) => fetch(`${API_BASE_URL}/get_user_friends?id=${id}`).then(res => res.json());
-export const recommendFOF = (id) => fetch(`${API_BASE_URL}/recommend_fof?id=${id}`).then(res => res.json());
-export const recommendStrangers = (id) => fetch(`${API_BASE_URL}/recommend_strangers?id=${id}`).then(res => res.json());
+// Connect to db
+const dbConfig = {
+    host: 'localhost',
+    user: 'usr_mdl_usr',
+    password: 'example',
+    database: 'synthetic_users_local',
+    port: 3306,
+};
 
-export const batchGetSimpleProfiles = (ids) =>
-    fetch(`${API_BASE_URL}/batch_get_simple_profiles`, {
-        method: 'POST',
+// 🌐 Common CORS Headers
+async function request(url, options = {}) {
+    const res = await fetch(url, {
+        mode: 'cors',
         headers: {
-            'Content-Type': 'application/json'
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            ...(options.headers || {}),
         },
-        body: JSON.stringify(ids)  // directement un tableau, pas { ids: [...] }
-    }).then(res => res.json());
+        ...options,
+    });
+    return res.json();
+}
+
+// private::
+async function connectDB() {
+    return request(`${BASE_URL}/set_db_connection`, {
+        method: 'POST',
+        body: JSON.stringify(dbConfig),
+    });
+}
+
+// 🌐 Public APIs
+
+export async function ping() {
+    return request(PING_URL);
+}
+
+
+export async function refreshDB() {
+    return request(`${BASE_URL}/refresh_db`, { method: 'POST' });
+}
+
+export async function getRandomUserID() {
+    return request(`${BASE_URL}/random_user_id`);
+}
+
+export async function getTotalCount() {
+    return request(`${BASE_URL}/get_total_count`);
+}
+
+export async function batchGetSimpleProfiles(userIds) {
+    return request(`${BASE_URL}/batch_get_simple_profiles`, {
+        method: 'POST',
+        body: JSON.stringify(userIds),
+    });
+}
+
+export async function getUserProfile(id) {
+    return request(`${BASE_URL}/get_user_profile?id=${id}`);
+}
+
+export async function getUserProfileSimple(id) {
+    return request(`${BASE_URL}/get_user_profile_simple?id=${id}`);
+}
+
+export async function getUserFriends(id) {
+    return request(`${BASE_URL}/get_user_friends?id=${id}`);
+}
+
+export async function simulateDay() {
+    return request(`${BASE_URL}/simulate_day`, { method: 'POST' });
+}
+
+export async function recommendFOF(id) {
+    return request(`${BASE_URL}/recommend_fof?id=${id}`);
+}
+
+export async function recommendStrangers(id) {
+    return request(`${BASE_URL}/recommend_strangers?id=${id}`);
+}
+
+// 🔄 INIT：ping + connectDB()
+export async function initializeAPI() {
+    try {
+        const pingRes = await ping();
+        if (!pingRes || pingRes.status !== 'alive') {
+            return { status: false, message: 'Server is not alive' };
+        }
+
+        const connRes = await connectDB();
+        if (connRes.status !== 'connected') {
+            return { status: false, message: 'Failed to connect to DB' };
+        }
+
+        return { status: true };
+    } catch (err) {
+        return {
+            status: false,
+            message: err?.message || 'Unknown error during initialization',
+        };
+    }
+}

@@ -1,78 +1,117 @@
 import React, { useState, useEffect } from 'react';
+import UserConnections from './UserConnections'; // adapte le chemin si besoin
 
 function percentFromScore(score) {
-    return Math.min(100, Math.max(0, Math.round((score / 15) * 100)));
+    const percentage = (score / 15) * 100;
+    return Math.min(100, Math.max(0, Math.round(percentage)));
 }
 
-export default function UserProfile({ selectedUserId, setSelectedUserId, totalUsers }) {
+export default function UserProfile({ selectedUserId, setSelectedUserId, totalUsers, day }) {
     const [userIdInput, setUserIdInput] = useState('');
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    // Fetch user profile from API
+    // Récupérer le profil utilisateur via API
     const fetchUserProfile = async (id) => {
         setLoading(true);
+        setError(null);
         try {
-            const res = await fetch(`/api/get_user_profile?id=${id}`);
+            const res = await fetch(`http://localhost:8080/api/get_user_profile?id=${id}`);
             if (!res.ok) throw new Error('User not found');
             const data = await res.json();
             setProfile(data);
             setSelectedUserId(id);
-        } catch {
-            alert('Invalid User ID');
+        } catch (err) {
+            setError(err.message);
+            setProfile(null);
+            setSelectedUserId(null);
         } finally {
             setLoading(false);
         }
     };
 
-    // Random user fetch
+    // Obtenir un utilisateur aléatoire
     const fetchRandomUser = async () => {
-        const res = await fetch('/api/random_user_id');
-        const { id } = await res.json();
-        setUserIdInput(id);
-        fetchUserProfile(id);
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch('http://localhost:8080/api/random_user_id');
+            if (!res.ok) throw new Error('Failed to get random user');
+            const { id } = await res.json();
+            setUserIdInput(id.toString());
+            await fetchUserProfile(id);
+        } catch (err) {
+            setError("Erreur lors de la récupération d'un utilisateur aléatoire");
+            setProfile(null);
+            setSelectedUserId(null);
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Handle input submit
+    // Soumission du formulaire
     const handleSubmit = (e) => {
         e.preventDefault();
-        const id = parseInt(userIdInput);
+        const id = parseInt(userIdInput, 10);
         if (id >= 1 && id <= totalUsers) {
             fetchUserProfile(id);
         } else {
-            alert(`User ID must be between 1 and ${totalUsers}`);
+            setError(`User ID must be between 1 and ${totalUsers}`);
         }
     };
 
+    // Lors du changement de selectedUserId ou day, on recharge le profil
     useEffect(() => {
         if (selectedUserId) {
-            setUserIdInput(selectedUserId);
+            setUserIdInput(selectedUserId.toString());
+            fetchUserProfile(selectedUserId);
+        } else {
+            setProfile(null);
+            setUserIdInput('');
+            setError(null);
         }
-    }, [selectedUserId]);
+    }, [selectedUserId, day]);
 
     return (
         <section className="bg-white shadow rounded p-6 mt-6">
             <h2 className="text-2xl font-semibold mb-4">User Profile Viewer</h2>
-            <form onSubmit={handleSubmit} className="flex gap-2 items-center mb-4">
+
+            <form onSubmit={handleSubmit} className="flex gap-2 items-center mb-4" noValidate>
+                <label htmlFor="userIdInput" className="sr-only">User ID</label>
                 <input
+                    id="userIdInput"
                     type="number"
                     min="1"
                     max={totalUsers}
                     value={userIdInput}
-                    onChange={(e) => setUserIdInput(e.target.value)}
+                    onChange={(e) => {
+                        setUserIdInput(e.target.value);
+                        if (error) setError(null); // clear error when user types
+                    }}
                     placeholder="User ID"
                     className="border rounded px-3 py-2 w-24"
                     disabled={loading}
+                    aria-invalid={error ? 'true' : 'false'}
+                    aria-describedby="error-message"
                 />
                 <button type="submit" disabled={loading} className="bg-green-600 text-white px-4 py-2 rounded">
                     View
                 </button>
-                <button type="button" onClick={fetchRandomUser} disabled={loading} className="bg-gray-500 text-white px-4 py-2 rounded">
+                <button
+                    type="button"
+                    onClick={fetchRandomUser}
+                    disabled={loading}
+                    className="bg-gray-500 text-white px-4 py-2 rounded"
+                >
                     Random
                 </button>
             </form>
 
             {loading && <p>Loading profile...</p>}
+
+            {error && <p id="error-message" className="text-red-600 mb-4">{error}</p>}
 
             {profile && (
                 <div className="flex flex-col md:flex-row gap-6">
@@ -82,7 +121,9 @@ export default function UserProfile({ selectedUserId, setSelectedUserId, totalUs
                         className="w-24 h-24 rounded-full object-cover border"
                     />
                     <div className="flex-1">
-                        <h3 className="text-xl font-bold">{profile.first_name} {profile.surname} {profile.gender === 'M' ? '♂️' : '♀️'}</h3>
+                        <h3 className="text-xl font-bold">
+                            {profile.first_name} {profile.surname} {profile.gender === 'M' ? '♂️' : profile.gender === 'F' ? '♀️' : '⚧️'}
+                        </h3>
 
                         <div className="mt-4">
                             <h4 className="font-semibold">Interests</h4>
